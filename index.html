@@ -196,11 +196,6 @@
         }
 
         /* --- ANIMATIONER (GNIST-EXPLOSION) --- */
-        @keyframes explode {
-            0% { transform: scale(1); opacity: 1; }
-            100% { transform: scale(2.5); opacity: 0; }
-        }
-
         .spark {
             position: absolute;
             width: 10px;
@@ -228,7 +223,7 @@
         <div id="loginSection">
             <p>Vem är du som vågar recensera Nils legendariska tuffhet? Skriv ditt namn:</p>
             <input type="text" id="usernameInput" placeholder="DITT JÄRN-NAMN" maxlength="15"><br>
-            <button class="btn" onclick="login()">Träd in</button>
+            <button class="btn" id="loginBtn">Träd in</button>
         </div>
 
         <div id="voteSection" class="hidden">
@@ -238,7 +233,7 @@
                 <p>Klicka på en siffra för att sätta betyg (1 = Mjukis, 10 = Absolut Terminator):</p>
                 <div class="rating-container" id="ratingContainer">
                     </div>
-                <button class="btn" id="submitVoteBtn" onclick="submitVote()">AVFYRA RÖST!</button>
+                <button class="btn" id="submitVoteBtn">AVFYRA RÖST!</button>
             </div>
 
             <div id="alreadyVotedMessage" class="hidden">
@@ -270,19 +265,24 @@
     </div>
 
     <script>
-        // --- APPLIKATIONS-STATE (Hämtas från localStorage eller startar tomt) ---
+        // --- APPLIKATIONS-STATE ---
         let votes = JSON.parse(localStorage.getItem('nils_votes')) || [];
         let currentUser = localStorage.getItem('nils_current_user') || '';
         let selectedRating = 0;
 
-        // Starta sidan och kolla om användaren redan är inloggad
-        window.onload = function() {
+        // Starta sidan säkert när allt laddat
+        document.addEventListener('DOMContentLoaded', function() {
             buildRatingDots();
+            
+            // Koppla händelser till knapparna (bättre än onclick i HTML på GitHub)
+            document.getElementById('loginBtn').addEventListener('click', login);
+            document.getElementById('submitVoteBtn').addEventListener('click', submitVote);
+
             if (currentUser) {
                 showVoteSection();
             }
             updateLeaderboard();
-        };
+        });
 
         // Skapa röstningsknapparna 1-10 dynamiskt
         function buildRatingDots() {
@@ -292,7 +292,7 @@
                 const dot = document.createElement('div');
                 dot.className = 'rating-dot';
                 dot.innerText = i;
-                dot.onclick = function() { selectRating(i, dot); };
+                dot.addEventListener('click', function() { selectRating(i, dot); });
                 container.appendChild(dot);
             }
         }
@@ -300,10 +300,8 @@
         // Hantera val av siffra
         function selectRating(num, element) {
             selectedRating = num;
-            // Nollställ alla andra knappars design
             const dots = document.querySelectorAll('.rating-dot');
             dots.forEach(d => d.classList.remove('selected'));
-            // Markera den klickade
             element.classList.add('selected');
         }
 
@@ -325,7 +323,6 @@
             document.getElementById('voteSection').classList.remove('hidden');
             document.getElementById('welcomeMessage').innerText = `Hej ${currentUser}!`;
 
-            // Kolla om denna användare redan finns i listan
             const existingVote = votes.find(v => v.name.toLowerCase() === currentUser.toLowerCase());
             
             if (existingVote) {
@@ -345,14 +342,10 @@
                 return;
             }
 
-            // Spara röst
             votes.push({ name: currentUser, score: selectedRating });
             localStorage.setItem('nils_votes', JSON.stringify(votes));
 
-            // Skapa den häftiga röstnings-explosionen!
             createExplosion();
-
-            // Uppdatera gränssnitt
             showVoteSection();
             updateLeaderboard();
         }
@@ -371,7 +364,6 @@
 
             let totalScore = 0;
             
-            // Bygg tabellrader bakifrån (nyast överst)
             for (let i = votes.length - 1; i >= 0; i--) {
                 totalScore += votes[i].score;
                 
@@ -383,27 +375,23 @@
                 tbody.appendChild(row);
             }
 
-            // Räkna ut genomsnitt
             const avg = (totalScore / votes.length).toFixed(1);
             document.getElementById('averageDisplay').innerText = avg;
             document.getElementById('totalVotesDisplay').innerText = votes.length;
         }
 
-        // Gnist- och explosionseffekt (Skapar element spridda från containerns mitt)
+        // Gnist- och explosionseffekt
         function createExplosion() {
             const container = document.getElementById('mainContainer');
             const rect = container.getBoundingClientRect();
             
-            // Generera 40 gnistor
             for (let i = 0; i < 40; i++) {
                 const spark = document.createElement('div');
                 spark.className = 'spark';
                 
-                // Startposition mitt i containern
                 spark.style.left = (rect.width / 2) + 'px';
                 spark.style.top = (rect.height / 2) + 'px';
                 
-                // Slumpa vinkel och hastighet för varje gnista
                 const angle = Math.random() * Math.PI * 2;
                 const velocity = Math.random() * 150 + 50;
                 const xDestination = Math.cos(angle) * velocity;
@@ -411,7 +399,6 @@
                 
                 container.appendChild(spark);
                 
-                // Animera via JS för enkelhetens skull i en och samma fil
                 spark.animate([
                     { transform: 'translate(0, 0) scale(1)', opacity: 1 },
                     { transform: `translate(${xDestination}px, ${yDestination}px) scale(0)`, opacity: 0 }
@@ -421,7 +408,6 @@
                     fill: 'forwards'
                 });
                 
-                // Städa bort gnistan efteråt
                 setTimeout(() => {
                     spark.remove();
                 }, 1000);
