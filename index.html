@@ -148,4 +148,285 @@
         /* --- STATISTIK OCH LIVE-RESULTAT --- */
         .stats-box {
             background: rgba(0, 0, 0, 0.4);
-            border:
+            border: 2px dashed #ff4500;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        .average-score {
+            font-size: 4rem;
+            color: #fff;
+            text-shadow: 0 0 20px #ff4500;
+            margin: 10px 0;
+        }
+
+        .leaderboard {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .leaderboard th, .leaderboard td {
+            padding: 10px;
+            border-bottom: 1px solid #333;
+            text-align: left;
+        }
+
+        .leaderboard th {
+            color: #ff8c00;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+
+        .leaderboard td {
+            color: #ddd;
+        }
+
+        .leaderboard tr:hover {
+            background: rgba(255, 69, 0, 0.1);
+        }
+
+        .badge-score {
+            background: #ff4500;
+            color: white;
+            padding: 2px 8px;
+            font-weight: bold;
+            font-family: 'Impact', sans-serif;
+        }
+
+        /* --- ANIMATIONER (GNIST-EXPLOSION) --- */
+        @keyframes explode {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+
+        .spark {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: radial-gradient(circle, #fff, #ff8c00, transparent);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        /* --- NOTERING --- */
+        .backend-note {
+            font-size: 0.75rem;
+            color: #555;
+            margin-top: 30px;
+            font-family: 'Arial', sans-serif;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="mainContainer">
+        <h1>Nils Tuffhetsindex</h1>
+
+        <div id="loginSection">
+            <p>Vem är du som vågar recensera Nils legendariska tuffhet? Skriv ditt namn:</p>
+            <input type="text" id="usernameInput" placeholder="DITT JÄRN-NAMN" maxlength="15"><br>
+            <button class="btn" onclick="login()">Träd in</button>
+        </div>
+
+        <div id="voteSection" class="hidden">
+            <h2 id="welcomeMessage">Hej!</h2>
+            
+            <div id="votingForm">
+                <p>Klicka på en siffra för att sätta betyg (1 = Mjukis, 10 = Absolut Terminator):</p>
+                <div class="rating-container" id="ratingContainer">
+                    </div>
+                <button class="btn" id="submitVoteBtn" onclick="submitVote()">AVFYRA RÖST!</button>
+            </div>
+
+            <div id="alreadyVotedMessage" class="hidden">
+                <p style="color: #ff8c00; font-weight: bold;">Du har redan lagt din röst!</p>
+                <p>Ditt tidigare valda betyg: <span class="badge-score" id="userPreviousVote">0</span></p>
+            </div>
+
+            <div class="stats-box">
+                <h2>Aktuell Tuffhetsstatus</h2>
+                <div class="average-score" id="averageDisplay">0.0</div>
+                <p>Totalt antal röster: <span id="totalVotesDisplay" style="color:#fff; font-weight:bold;">0</span></p>
+                
+                <table class="leaderboard">
+                    <thead>
+                        <tr>
+                            <th>Domare</th>
+                            <th>Betyg på Nils</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="backend-note">
+            ⚡ <strong>Teknisk info:</strong> Denna app körs i <em>localStorage</em>. Alla röster sparas lokalt i just den här webbläsaren. För att dela datan live mellan polare på olika telefoner/datorer skulle man behöva koppla på en backend eller t.ex. Google Firebase.
+        </div>
+    </div>
+
+    <script>
+        // --- APPLIKATIONS-STATE (Hämtas från localStorage eller startar tomt) ---
+        let votes = JSON.parse(localStorage.getItem('nils_votes')) || [];
+        let currentUser = localStorage.getItem('nils_current_user') || '';
+        let selectedRating = 0;
+
+        // Starta sidan och kolla om användaren redan är inloggad
+        window.onload = function() {
+            buildRatingDots();
+            if (currentUser) {
+                showVoteSection();
+            }
+            updateLeaderboard();
+        };
+
+        // Skapa röstningsknapparna 1-10 dynamiskt
+        function buildRatingDots() {
+            const container = document.getElementById('ratingContainer');
+            container.innerHTML = '';
+            for (let i = 1; i <= 10; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'rating-dot';
+                dot.innerText = i;
+                dot.onclick = function() { selectRating(i, dot); };
+                container.appendChild(dot);
+            }
+        }
+
+        // Hantera val av siffra
+        function selectRating(num, element) {
+            selectedRating = num;
+            // Nollställ alla andra knappars design
+            const dots = document.querySelectorAll('.rating-dot');
+            dots.forEach(d => d.classList.remove('selected'));
+            // Markera den klickade
+            element.classList.add('selected');
+        }
+
+        // Logga in användare
+        function login() {
+            const input = document.getElementById('usernameInput').value.trim();
+            if (input === '') {
+                alert('Du måste skriva ett namn för att tåla den här sidan!');
+                return;
+            }
+            currentUser = input;
+            localStorage.setItem('nils_current_user', currentUser);
+            showVoteSection();
+        }
+
+        // Visa röstningssidan och kolla om användaren redan har röstat
+        function showVoteSection() {
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('voteSection').classList.remove('hidden');
+            document.getElementById('welcomeMessage').innerText = `Hej ${currentUser}!`;
+
+            // Kolla om denna användare redan finns i listan
+            const existingVote = votes.find(v => v.name.toLowerCase() === currentUser.toLowerCase());
+            
+            if (existingVote) {
+                document.getElementById('votingForm').classList.add('hidden');
+                document.getElementById('userPreviousVote').innerText = existingVote.score;
+                document.getElementById('alreadyVotedMessage').classList.remove('hidden');
+            } else {
+                document.getElementById('votingForm').classList.remove('hidden');
+                document.getElementById('alreadyVotedMessage').classList.add('hidden');
+            }
+        }
+
+        // Registrera röst + skapa explosionen
+        function submitVote() {
+            if (selectedRating === 0) {
+                alert('Välj ett tuffhetsbetyg först (1-10)!');
+                return;
+            }
+
+            // Spara röst
+            votes.push({ name: currentUser, score: selectedRating });
+            localStorage.setItem('nils_votes', JSON.stringify(votes));
+
+            // Skapa den häftiga röstnings-explosionen!
+            createExplosion();
+
+            // Uppdatera gränssnitt
+            showVoteSection();
+            updateLeaderboard();
+        }
+
+        // Räkna ut snitt, totalt och rita upp tabellen
+        function updateLeaderboard() {
+            const tbody = document.getElementById('leaderboardBody');
+            tbody.innerHTML = '';
+
+            if (votes.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="2" style="text-align:center; color:#555;">Inga röster lagda ännu... Isen är orörd!</td></tr>`;
+                document.getElementById('averageDisplay').innerText = "0.0";
+                document.getElementById('totalVotesDisplay').innerText = "0";
+                return;
+            }
+
+            let totalScore = 0;
+            
+            // Bygg tabellrader bakifrån (nyast överst)
+            for (let i = votes.length - 1; i >= 0; i--) {
+                totalScore += votes[i].score;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${votes[i].name}</strong></td>
+                    <td><span class="badge-score">${votes[i].score}/10</span></td>
+                `;
+                tbody.appendChild(row);
+            }
+
+            // Räkna ut genomsnitt
+            const avg = (totalScore / votes.length).toFixed(1);
+            document.getElementById('averageDisplay').innerText = avg;
+            document.getElementById('totalVotesDisplay').innerText = votes.length;
+        }
+
+        // Gnist- och explosionseffekt (Skapar element spridda från containerns mitt)
+        function createExplosion() {
+            const container = document.getElementById('mainContainer');
+            const rect = container.getBoundingClientRect();
+            
+            // Generera 40 gnistor
+            for (let i = 0; i < 40; i++) {
+                const spark = document.createElement('div');
+                spark.className = 'spark';
+                
+                // Startposition mitt i containern
+                spark.style.left = (rect.width / 2) + 'px';
+                spark.style.top = (rect.height / 2) + 'px';
+                
+                // Slumpa vinkel och hastighet för varje gnista
+                const angle = Math.random() * Math.PI * 2;
+                const velocity = Math.random() * 150 + 50;
+                const xDestination = Math.cos(angle) * velocity;
+                const yDestination = Math.sin(angle) * velocity;
+                
+                container.appendChild(spark);
+                
+                // Animera via JS för enkelhetens skull i en och samma fil
+                spark.animate([
+                    { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+                    { transform: `translate(${xDestination}px, ${yDestination}px) scale(0)`, opacity: 0 }
+                ], {
+                    duration: Math.random() * 600 + 400,
+                    easing: 'cubic-bezier(0.1, 0.8, 0.3, 1)',
+                    fill: 'forwards'
+                });
+                
+                // Städa bort gnistan efteråt
+                setTimeout(() => {
+                    spark.remove();
+                }, 1000);
+            }
+        }
+    </script>
+</body>
+</html>
